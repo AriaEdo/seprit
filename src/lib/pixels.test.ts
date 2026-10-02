@@ -110,6 +110,23 @@ describe("floodFill", () => {
     expect(getPixel(filled, 2, 0)).toEqual(RED);
     expect(getPixel(floodFill(f, 0, 0, [0, 0, 0, 0]), 1, 0)).toEqual([240, 245, 255, 255]);
   });
+
+  it("doesn't leak past a wall by wrapping from one row's end to the next row's start", () => {
+    // 3x2, red wall at x = 1: the left column (x 0) and right column (x 2) are separate regions,
+    // but (2,0) and (0,1) are neighbours in memory.
+    const walled = paintPoints(createFrame(3, 2), [[1, 0], [1, 1]], RED);
+    const fromLeft = floodFill(walled, 0, 0, BLUE);
+    expect(getPixel(fromLeft, 0, 1)).toEqual(BLUE);
+    expect(getPixel(fromLeft, 2, 0)).toEqual([0, 0, 0, 0]);
+    const fromRight = floodFill(walled, 2, 0, BLUE);
+    expect(getPixel(fromRight, 2, 1)).toEqual(BLUE);
+    expect(getPixel(fromRight, 0, 1)).toEqual([0, 0, 0, 0]);
+  });
+
+  it("is 4-connected, so a 1-px diagonal outline still holds the fill in", () => {
+    const diagonal = paintPoints(createFrame(2, 2), [[1, 0], [0, 1]], RED);
+    expect(getPixel(floodFill(diagonal, 0, 0, BLUE), 1, 1)).toEqual([0, 0, 0, 0]);
+  });
 });
 
 describe("rectFromCorners / copyRegion / pasteFrame", () => {

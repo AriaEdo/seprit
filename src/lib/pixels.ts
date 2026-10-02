@@ -141,19 +141,32 @@ export function floodFill(frame: Frame, x: number, y: number, color: RGBA, toler
   if (!inBounds(frame, x, y)) return frame;
   const target = getPixel(frame, x, y);
   if (target.every((v, i) => v === color[i])) return frame;
-  const { width, height } = frame;
-  const data = new Uint8ClampedArray(frame.data);
+  const { width, height, data: src } = frame;
+  const data = new Uint8ClampedArray(src);
+  const [tr, tg, tb, ta] = target;
+  const [cr, cg, cb, ca] = color;
+  // Pixel indices, marked when pushed so each is pushed at most once: width × height slots suffice.
+  // Typed arrays instead of [x, y] pairs: no allocation per pixel.
   const filled = new Uint8Array(width * height);
-  const matches = (i: number) => !filled[i / 4] && target.every((v, c) => Math.abs(data[i + c] - v) <= tolerance);
-  const stack: [number, number][] = [[x, y]];
-  while (stack.length) {
-    const [px, py] = stack.pop()!;
-    if (px < 0 || py < 0 || px >= width || py >= height) continue;
-    const i = (py * width + px) * 4;
-    if (!matches(i)) continue;
-    filled[i / 4] = 1;
-    data.set(color, i);
-    stack.push([px + 1, py], [px - 1, py], [px, py + 1], [px, py - 1]);
+  const stack = new Int32Array(width * height);
+  let top = 0;
+  const visit = (p: number) => {
+    const i = p * 4;
+    if (filled[p] || Math.abs(src[i] - tr) > tolerance || Math.abs(src[i + 1] - tg) > tolerance
+      || Math.abs(src[i + 2] - tb) > tolerance || Math.abs(src[i + 3] - ta) > tolerance) return;
+    filled[p] = 1;
+    stack[top++] = p;
+  };
+  visit(y * width + x);
+  while (top) {
+    const p = stack[--top];
+    const i = p * 4;
+    data[i] = cr; data[i + 1] = cg; data[i + 2] = cb; data[i + 3] = ca;
+    const px = p % width;
+    if (px + 1 < width) visit(p + 1);
+    if (px > 0) visit(p - 1);
+    if (p + width < width * height) visit(p + width);
+    if (p >= width) visit(p - width);
   }
   return { ...frame, data };
 }

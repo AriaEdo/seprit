@@ -107,6 +107,8 @@ Umum:
 - Disetujui user 2026-10-02 (cek manual New/Open/shortcut tidak dikonfirmasi eksplisit)
 - [x] `PixelCanvas.svelte`: blit (salin pixel ke canvas offscreen) dipisah dari render → gerak mouse / zoom / seleksi tidak lagi menyalin ulang data gambar; render tidak bergantung pada `hover` (ruler digambar ulang oleh handler pointer); tanpa salinan ekstra di `blit`; `hover` diperbarui hanya saat pindah pixel; `pointercancel` tetap commit undo — 125 test lolos, `svelte-check` 0 error; tanpa unit test komponen, peningkatan kecepatan tidak diukur
 - Disetujui user 2026-10-02 (cek manual tidak dikonfirmasi eksplisit)
+- [x] `pixels.ts` `floodFill`: stack `Int32Array` indeks pixel + cek warna per channel tanpa alokasi per pixel — Fill 512² penuh 98 ms → 24–41 ms (bench Bun, bukan di aplikasi); +2 test (tidak bocor lewat tepi baris di 2 arah, 4-arah vs diagonal), dicek dengan mutasi — total 127 test. Fungsi import (`removeGridLines` 222 ms, `guessGrid` 129 ms, `imageToCel` 98 ms @ 2048²) sengaja tidak diubah: jalan sekali per import
+- Disetujui user 2026-10-02 (cek manual tidak dikonfirmasi eksplisit)
 
 ## Struktur file saat ini
 
