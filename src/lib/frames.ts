@@ -1,6 +1,6 @@
 // Pure edits on the animation document: a grid of layers × frames where each cell (cel) is a Frame.
 // Every layer has one cel per frame and all cels share one size.
-import { composite, createFrame, pasteFrame, tintFrame, type BlendMode, type Frame, type RGBA } from "./pixels";
+import { composite, createFrame, tintFrame, type BlendMode, type Frame, type RGBA } from "./pixels";
 
 export interface Layer {
   readonly name: string;
@@ -68,7 +68,9 @@ function mapColumns(doc: Doc, cels: (c: readonly Frame[]) => readonly Frame[], l
 
 // A link group with one member left links nothing.
 function dropLonelyLinks(links: Links): Links {
-  return links.map((id) => (id !== null && links.indexOf(id) === links.lastIndexOf(id) ? null : id));
+  const count = new Map<number, number>();
+  for (const id of links) if (id !== null) count.set(id, (count.get(id) ?? 0) + 1);
+  return links.map((id) => (id !== null && count.get(id) === 1 ? null : id));
 }
 
 export const isLinked = (layer: Layer, frame: number) => layer.links[frame] !== null;
@@ -200,7 +202,10 @@ export function flatten(doc: Doc, frame: number): Frame {
   if (hit && hit.width === width && hit.height === height && hit.inputs.length === inputs.length && hit.inputs.every((x, i) => x === inputs[i])) {
     return hit.out;
   }
-  const out = visible.reduce((acc, l) => composite(acc, l.cels[frame], l.opacity, l.blend), blankLike(doc));
+  // A fully opaque bottom layer composited onto nothing is just its cel, whatever the blend mode.
+  const [bottom, ...rest] = visible;
+  const start = bottom?.opacity === 255 ? bottom.cels[frame] : blankLike(doc);
+  const out = (start === bottom?.cels[frame] ? rest : visible).reduce((acc, l) => composite(acc, l.cels[frame], l.opacity, l.blend), start);
   flattenCache.set(frame, { width, height, inputs, out });
   return out;
 }
@@ -209,7 +214,12 @@ export function flatten(doc: Doc, frame: number): Frame {
 export function spriteSheet(doc: Doc): Frame {
   const { width, height } = currentCel(doc);
   const sheet = createFrame(width * frameCount(doc), height);
-  return doc.layers[0].cels.reduce((out, _, f) => pasteFrame(out, flatten(doc, f), f * width, 0), sheet);
+  // Copied row by row into one buffer: pasting would copy the whole sheet once per frame.
+  for (let f = 0; f < frameCount(doc); f++) {
+    const { data } = flatten(doc, f);
+    for (let y = 0; y < height; y++) sheet.data.set(data.subarray(y * width * 4, (y + 1) * width * 4), (y * sheet.width + f * width) * 4);
+  }
+  return sheet;
 }
 
 const ONION_BEFORE: RGBA = [255, 0, 0, 255];
@@ -217,15 +227,25 @@ const ONION_AFTER: RGBA = [0, 0, 255, 255];
 
 // Up to `before`/`after` neighbouring frames (no wrap-around), tinted red/blue and merged into one
 // frame to draw under the current one. Frame d steps away gets opacity / d. Null when there is none.
+// Last result with its inputs: during a stroke only the current frame changes, so the neighbours'
+// flatten() results keep their identity and the merge can be reused. Results must not be mutated.
+let onionCache: { inputs: (Frame | RGBA | number)[]; out: Frame } | null = null;
+
 export function onionSkin(doc: Doc, before: number, after: number, opacity: number): Frame | null {
   const shown: { frame: number; d: number; tint: RGBA }[] = [];
   for (let d = 1; d <= before && doc.frame - d >= 0; d++) shown.push({ frame: doc.frame - d, d, tint: ONION_BEFORE });
   for (let d = 1; d <= after && doc.frame + d < frameCount(doc); d++) shown.push({ frame: doc.frame + d, d, tint: ONION_AFTER });
   if (shown.length === 0) return null;
+  const flat = shown.map((s) => flatten(doc, s.frame));
+  const inputs = [opacity, ...shown.flatMap((s, i) => [s.d, s.tint, flat[i]])];
+  if (onionCache && onionCache.inputs.length === inputs.length && onionCache.inputs.every((x, i) => x === inputs[i])) return onionCache.out;
   // Farthest first, so nearer frames draw on top.
-  return shown
+  const out = shown
+    .map((s, i) => ({ ...s, flat: flat[i] }))
     .toSorted((a, b) => b.d - a.d)
-    .reduce((out, s) => composite(out, tintFrame(flatten(doc, s.frame), s.tint), Math.round(opacity / s.d)), blankLike(doc));
+    .reduce((acc, s) => composite(acc, tintFrame(s.flat, s.tint), Math.round(opacity / s.d)), blankLike(doc));
+  onionCache = { inputs, out };
+  return out;
 }
 
 const clampDuration = (ms: number) => Math.round(Math.min(MAX_DURATION, Math.max(MIN_DURATION, ms)));
