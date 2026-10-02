@@ -89,6 +89,7 @@
   let onionAfter = $state(1);
   let onionOpacity = $state(128);
   const clampInt = (n: number, min: number, max: number) => (Number.isFinite(n) ? Math.min(max, Math.max(min, Math.round(n))) : min);
+  const errText = (err: unknown) => (err instanceof Error ? err.message : String(err));
   // Hidden while playing: it would flicker, and the animation itself is what's being watched.
   const onion = $derived(onionOn && !playing
     ? onionSkin(doc, clampInt(onionBefore, 0, MAX_ONION), clampInt(onionAfter, 0, MAX_ONION), clampInt(onionOpacity, 0, 255))
@@ -119,7 +120,7 @@
     selection = null;
   }
 
-  const setZoom = (z: number) => (zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z)));
+  const setZoom = (z: number) => (zoom = clampInt(z, MIN_ZOOM, MAX_ZOOM));
 
   function applySize() {
     if (!isValidSize(newW) || !isValidSize(newH)) {
@@ -153,7 +154,7 @@
     edit(setCel(doc, clearRegion(frame, selection)));
   }
 
-  const clampFps = (n: number) => (Number.isFinite(n) ? Math.min(MAX_FPS, Math.max(MIN_FPS, Math.round(n))) : DEFAULT_FPS);
+  const clampFps = (n: number) => (Number.isFinite(n) ? clampInt(n, MIN_FPS, MAX_FPS) : DEFAULT_FPS);
 
   function togglePlay() {
     if (!playing) {
@@ -188,7 +189,7 @@
       saved = doc;
       fileError = "";
     } catch (err) {
-      fileError = `Gagal menyimpan: ${err instanceof Error ? err.message : err}`;
+      fileError = `Gagal menyimpan: ${errText(err)}`;
     }
   }
 
@@ -197,7 +198,7 @@
       await exportSheetFile(doc);
       fileError = "";
     } catch (err) {
-      fileError = `Gagal export: ${err instanceof Error ? err.message : err}`;
+      fileError = `Gagal export: ${errText(err)}`;
     }
   }
 
@@ -213,7 +214,7 @@
       if (img.width > frame.width || img.height > frame.height) sheet = img;
       else placeSheet(img, 1, 1);
     } catch (err) {
-      fileError = `Gagal import: ${err instanceof Error ? err.message : err}`;
+      fileError = `Gagal import: ${errText(err)}`;
     }
   }
 
@@ -228,7 +229,7 @@
       edit(addLayerFromCels(doc, cels));
       fileError = "";
     } catch (err) {
-      fileError = `Gagal import: ${err instanceof Error ? err.message : err}`;
+      fileError = `Gagal import: ${errText(err)}`;
     }
     sheet = null;
   }
@@ -254,7 +255,7 @@
       edit(setCel(addFrame({ ...doc, layer: before.layer, frame: before.frame }), cel));
       fileError = "";
     } catch (err) {
-      aiError = { title: "Gagal generate frame", text: `${err instanceof Error ? err.message : err}` };
+      aiError = { title: "Gagal generate frame", text: `${errText(err)}` };
     } finally {
       aiBusy = false;
     }
@@ -282,39 +283,37 @@
       fileError = "";
     } catch (err) {
       showGenerateSprite = false;
-      aiError = { title: "Gagal generate sprite", text: `${err instanceof Error ? err.message : err}` };
+      aiError = { title: "Gagal generate sprite", text: `${errText(err)}` };
     } finally {
       spriteBusy = false;
     }
   }
 
-  // Fresh untitled doc at the default size; undo history is cleared like after Open.
-  async function newFile() {
-    if (dirty && !(await ask("Perubahan yang belum disimpan akan hilang. Lanjutkan?", { kind: "warning" }))) return;
+  const confirmDiscard = async () => !dirty || (await ask("Perubahan yang belum disimpan akan hilang. Lanjutkan?", { kind: "warning" }));
+
+  // Replaces the whole document (New / Open): undo history is cleared, it belonged to the old file.
+  function loadDoc(next: Doc, path: string | null) {
     playing = false;
-    doc = saved = newDoc(DEFAULT_SIZE, DEFAULT_SIZE);
-    filePath = null;
+    doc = saved = next;
+    filePath = path;
     history = emptyHistory<Doc>();
     selection = null;
-    newW = newH = DEFAULT_SIZE;
+    newW = frame.width;
+    newH = frame.height;
     fileError = "";
+  }
+
+  async function newFile() {
+    if (await confirmDiscard()) loadDoc(newDoc(DEFAULT_SIZE, DEFAULT_SIZE), null);
   }
 
   async function openFile() {
     try {
-      if (dirty && !(await ask("Perubahan yang belum disimpan akan hilang. Lanjutkan?", { kind: "warning" }))) return;
+      if (!(await confirmDiscard())) return;
       const result = await openProject();
-      if (!result) return;
-      playing = false;
-      doc = saved = result.doc;
-      filePath = result.path;
-      history = emptyHistory<Doc>();
-      selection = null;
-      newW = frame.width;
-      newH = frame.height;
-      fileError = "";
+      if (result) loadDoc(result.doc, result.path);
     } catch (err) {
-      fileError = `Gagal membuka: ${err instanceof Error ? err.message : err}`;
+      fileError = `Gagal membuka: ${errText(err)}`;
     }
   }
 
@@ -323,15 +322,15 @@
   // File actions live in the OS menu bar; its accelerators handle Cmd/Ctrl+O/S/Shift+S.
   onMount(() => {
     setupAppMenu({ newFile, open: openFile, save: () => save(false), saveAs: () => save(true), exportSheet, importImage: importFile, aiSettings: () => (showAiSettings = true), generateSprite: () => (showGenerateSprite = true) })
-      .catch((err) => (fileError = `Gagal memasang menu: ${err instanceof Error ? err.message : err}`));
+      .catch((err) => (fileError = `Gagal memasang menu: ${errText(err)}`));
   });
 
   function onkeydown(e: KeyboardEvent) {
-    if (e.target instanceof HTMLInputElement || showAiSettings || showGenerateSprite || sheet || aiError) return;
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || showAiSettings || showGenerateSprite || sheet || aiError) return;
     const mod = e.metaKey || e.ctrlKey;
     const shortcut = TOOLS.find((t) => t.key === e.key);
     if (mod && e.key.toLowerCase() === "z") { e.preventDefault(); step(e.shiftKey ? redo : undo); }
-    else if (mod && e.key === "y") { e.preventDefault(); step(redo); }
+    else if (mod && e.key.toLowerCase() === "y") { e.preventDefault(); step(redo); }
     else if (mod && e.key === "c") { if (selection) clipboard = copyRegion(frame, selection); }
     else if (mod && e.key === "x") { if (selection && isEditable(layer)) { clipboard = copyRegion(frame, selection); clearSelection(); } }
     else if (mod && e.key === "v") paste();

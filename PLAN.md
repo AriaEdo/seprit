@@ -101,6 +101,11 @@ Umum:
 
 - [x] 4. `flatten` di-memo per indeks frame (dipakai ulang bila referensi cel, opacity & blend layer visible + ukuran sama; hasil tidak boleh dimutasi) + fast path `composite` tanpa `subarray` per pixel — benchmark 512², 8 layer semi-transparan, onion 5+5: 1 event goresan ±600 ms → 41 ms; total 125 test — belum diverifikasi manual
 
+### Rapikan kode (2026-10-02)
+- [x] `+page.svelte`: helper `errText`, `loadDoc` (dipakai New & Open), `confirmDiscard`; `setZoom` & `clampFps` pakai `clampInt` — perilaku tetap; 125 test lolos, `svelte-check` 0 error
+- [x] Bug: Backspace/Delete saat `<select>` fokus tidak lagi menghapus isi seleksi; Cmd/Ctrl+Y redo juga saat Caps Lock
+- Disetujui user 2026-10-02 (cek manual New/Open/shortcut tidak dikonfirmasi eksplisit)
+
 ## Struktur file saat ini
 
 - `src/lib/pixels.ts` — fungsi pixel murni (create, paint, line/rect/ellipse, fill, copy/paste region, resize, hex↔rgba, guessGrid/removeGridLines)
