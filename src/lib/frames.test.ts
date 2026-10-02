@@ -210,6 +210,11 @@ describe("flatten", () => {
     expect(getPixel(flatten(setOpacity(edited, 0, 0), 1), 0, 0)).toEqual([0, 0, 0, 0]);
   });
 
+  // The bottom layer is drawn onto nothing, but its opacity still applies.
+  it("fades a lone half-opacity layer instead of showing it at full strength", () => {
+    expect(getPixel(flatten(setOpacity(grid(1, 1), 0, 128), 0), 0, 0)[3]).toBe(128);
+  });
+
   it("is fully transparent when every layer is hidden", () => {
     const d = toggleVisible(grid(1, 1), 0);
     expect(flatten(d, 0).data.every((b) => b === 0)).toBe(true);
@@ -400,6 +405,25 @@ describe("onionSkin: neighbouring frames shown faintly to guide drawing", () => 
     const hidden = { ...d, layers: [{ ...d.layers[0], visible: false }] };
     expect(onionSkin(hidden, 1, 0, 255)!.data.every((b) => b === 0)).toBe(true);
   });
+
+  // It is recomputed on every stroke point; drawing on the current frame doesn't change the neighbours.
+  it("reuses the result while the neighbouring frames and settings are unchanged", () => {
+    const d = strip(3, 1);
+    const before = onionSkin(d, 1, 1, 128);
+    const drawn = setCel(d, paintPoints(currentCel(d), [[0, 0]], RED));
+    expect(onionSkin(drawn, 1, 1, 128)).toBe(before);
+    expect(onionSkin(drawn, 1, 1, 64)).not.toBe(before);
+    expect(alpha(onionSkin({ ...drawn, frame: 2 }, 1, 0, 255)!, 0)).toBe(255); // frame 1 now shows the stroke
+  });
+
+  // Linked cels are the same image, but before/after must still get their own colour.
+  it("tints an identical neighbour by its side, not by what was shown last", () => {
+    const d = duplicateLinked(setCel(grid(1, 1), paintPoints(blank, [[0, 0]], [255, 255, 255, 255])));
+    const [r1, , b1] = getPixel(onionSkin({ ...d, frame: 0 }, 1, 1, 255)!, 0, 0);
+    const [r0, , b0] = getPixel(onionSkin({ ...d, frame: 1 }, 1, 1, 255)!, 0, 0);
+    expect(b1).toBeGreaterThan(r1);
+    expect(r0).toBeGreaterThan(b0);
+  });
 });
 
 describe("spriteSheet", () => {
@@ -413,6 +437,11 @@ describe("spriteSheet", () => {
   it("leaves hidden layers out, matching what the user sees on canvas", () => {
     const d = toggleVisible(grid(2, 1), 1);
     expect(spriteSheet(d).data).toEqual(flatten(d, 0).data);
+  });
+
+  it("keeps semi-transparent pixels as they are, so the exported sprite matches the canvas", () => {
+    const d = setCel(grid(1, 2), paintPoints(blank, [[1, 1]], [10, 20, 30, 40]));
+    expect(getPixel(spriteSheet(d), 1, 1)).toEqual([10, 20, 30, 40]);
   });
 });
 
