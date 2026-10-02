@@ -1,0 +1,26 @@
+src/lib/PixelCanvas.svelte
+  s_72843493aa1251::t_60db722e1d5045 120-121
+  s_72843493aa1251::t_704bac3ca37a0f 251
+  s_72843493aa1251::t_9041f1932fb87e 7
+  s_72843493aa1251::t_5306d9fdbbce1b 277
+  s_72843493aa1251::t_26881c3e8f0c74 67-68,71,75-79
+  s_72843493aa1251::t_b2d9d85c29adcb 234-237
+PLAN.md
+  s_72843493aa1251::t_6776a166ef3908 108-109
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "c708901eda798dcdb3f9b31f8c500e585931d8f6",
+  "prompts": {},
+  "sessions": {
+    "s_72843493aa1251": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01e79161-9400-4b6a-8018-44abdd62a736",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "AriaEdo <aria.edo@gmail.com>"
+    }
+  }
+}
