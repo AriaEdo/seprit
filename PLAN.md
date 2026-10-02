@@ -105,6 +105,8 @@ Umum:
 - [x] `+page.svelte`: helper `errText`, `loadDoc` (dipakai New & Open), `confirmDiscard`; `setZoom` & `clampFps` pakai `clampInt` — perilaku tetap; 125 test lolos, `svelte-check` 0 error
 - [x] Bug: Backspace/Delete saat `<select>` fokus tidak lagi menghapus isi seleksi; Cmd/Ctrl+Y redo juga saat Caps Lock
 - Disetujui user 2026-10-02 (cek manual New/Open/shortcut tidak dikonfirmasi eksplisit)
+- [x] `PixelCanvas.svelte`: blit (salin pixel ke canvas offscreen) dipisah dari render → gerak mouse / zoom / seleksi tidak lagi menyalin ulang data gambar; render tidak bergantung pada `hover` (ruler digambar ulang oleh handler pointer); tanpa salinan ekstra di `blit`; `hover` diperbarui hanya saat pindah pixel; `pointercancel` tetap commit undo — 125 test lolos, `svelte-check` 0 error; tanpa unit test komponen, peningkatan kecepatan tidak diukur
+- Disetujui user 2026-10-02 (cek manual tidak dikonfirmasi eksplisit)
 
 ## Struktur file saat ini
 

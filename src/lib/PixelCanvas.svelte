@@ -4,6 +4,7 @@
     TRANSPARENT, type Frame, type Rect, type RGBA,
   } from "./pixels";
   import { drawRuler, RULER_SIZE } from "./ruler";
+  import { untrack } from "svelte";
 
   export type Tool = "pencil" | "eraser" | "line" | "rect" | "ellipse" | "fill" | "picker" | "select" | "move";
 
@@ -63,12 +64,19 @@
   function blit(target: HTMLCanvasElement, f: Frame) {
     target.width = f.width;
     target.height = f.height;
-    target.getContext("2d")!.putImageData(new ImageData(new Uint8ClampedArray(f.data), f.width, f.height), 0, 0);
+    // ImageData never writes to `data` and putImageData copies it, so no defensive copy is needed.
+    target.getContext("2d")!.putImageData(new ImageData(f.data as Uint8ClampedArray<ArrayBuffer>, f.width, f.height), 0, 0);
   }
 
+  // Copied only when the pixels change, not on zoom / selection / hover.
   $effect(() => {
     blit(source, view);
     if (onion) blit(onionSource, onion);
+  });
+
+  // Declared after the blit effect, so it runs after it when `view` changes.
+  $effect(() => {
+    void view;
     render();
   });
 
@@ -109,7 +117,8 @@
     ctx.drawImage(source, 0, 0, w, h);
     if (zoom >= GRID_MIN_ZOOM) drawGrid(ctx, a);
     if (selection) drawSelection(ctx, selection);
-    renderRulers();
+    // Untracked: hover only moves the ruler highlight; the pointer handlers redraw the rulers themselves.
+    untrack(renderRulers);
   }
 
   // One fill per render instead of a fillRect per square; rebuilt only when the square size changes.
@@ -222,8 +231,10 @@
 
   function onpointermove(e: PointerEvent) {
     const p = toPixel(e);
-    hover = p;
-    renderRulers();
+    if (p[0] !== hover?.[0] || p[1] !== hover?.[1]) {
+      hover = p;
+      renderRulers();
+    }
     if (!stage.hasPointerCapture(e.pointerId)) return;
     if (last) paint(p);
     else drag(p);
@@ -237,7 +248,7 @@
     base = null;
     moving = null;
     grabbing = false;
-    stage.releasePointerCapture(e.pointerId);
+    if (stage.hasPointerCapture(e.pointerId)) stage.releasePointerCapture(e.pointerId);
   }
 
   function onwheel(e: WheelEvent) {
@@ -263,6 +274,7 @@
       {onpointerdown}
       {onpointermove}
       {onpointerup}
+      onpointercancel={onpointerup}
       onpointerleave={() => { hover = null; renderRulers(); }}
     ><canvas bind:this={canvas}></canvas></div>
   </div>
