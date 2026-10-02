@@ -1,0 +1,25 @@
+src/lib/pixels.test.ts
+  s_72843493aa1251::t_b44c6f85d06df0 118-123
+  s_72843493aa1251::t_da69fd7453ceb5 113-117,124-129
+src/lib/pixels.ts
+  s_72843493aa1251::t_b44c6f85d06df0 147,149,163-164
+  s_72843493aa1251::t_e1a24cc193112e 144-146,148,151-162,165-169
+PLAN.md
+  s_72843493aa1251::t_b1303542da1f10 110-111
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "7dc15edec37855679a525c1d7e452d50b0c45c11",
+  "prompts": {},
+  "sessions": {
+    "s_72843493aa1251": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01e79161-9400-4b6a-8018-44abdd62a736",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "AriaEdo <aria.edo@gmail.com>"
+    }
+  }
+}
